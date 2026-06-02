@@ -25,8 +25,6 @@ end
 
 IDeterministic(s) = SparseICat([s],[interval(1)])
 
-# TODO: add sparsetabular functions for R/IPOMDPs so that we only have to work with numbers!
-
 function SafeSparseCat(vals, probs)
     vals_new = unique(vals)
     probs_new = []

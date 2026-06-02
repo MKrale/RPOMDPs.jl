@@ -24,7 +24,9 @@ module RPOMDPs
     export get_model_adversary, An, Sn
     include("makeuncertain.jl")
     export RobustifiedPOMDP, ConfidencePOMDP,
-    IntervalType, AdditiveAbs, AdditiveRel, Multiplicative 
+    IntervalType, AdditiveAbs, AdditiveRel, Multiplicative
+    include("ExplicitRPOMDP.jl")
+    export Index_IPOMDP
     include("Models/RPOMDP_Models.jl")
 end
 

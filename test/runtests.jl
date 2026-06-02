@@ -1,6 +1,8 @@
 using RPOMDPs
 using POMDPs, POMDPTools, IntervalArithmetic, Test
 
+include("./tiger.jl")
+
 @testset "RPOMDPs.jl" begin
 
     ### Testing models
@@ -23,6 +25,35 @@ using POMDPs, POMDPTools, IntervalArithmetic, Test
 
     T = transition(maxent_pomdp, 4, 1)
     @test(Tp.vals == T.vals && Tp.probs == T.probs)
+
+    ### Testing robustifying POMDPs (transition & observation function)
+    pomdp = TigerPOMDP()
+    rpomdp = ConfidencePOMDP(pomdp, 0.1, AdditiveAbs())
+
+    T = transition(rpomdp, true, 1)
+    Tp = SparseICat([true, false], [interval(0.4,0.6), interval(0.4, 0.6)])
+    for v in support(T)
+        @test isequal_interval(pdf(T,v), pdf(Tp, v))
+    end
+    O = observation(rpomdp, 0, true)
+    Op = SparseCat([true, false], [0.85, 0.15])
+    for v in support(O)
+        @test isapprox(pdf(O,v), pdf(Op, v))
+    end
+
+    ### Testing ExplicitRPOMDPs (transition & observation function)
+    rpomdp = Index_IPOMDP(rpomdp)
+    T = transition(rpomdp, 1, 2)
+    Tp = SparseICat([1, 2], [interval(0.4,0.6), interval(0.4, 0.6)])
+    for v in T.vals
+        @test isequal_interval(pdf(T,v), pdf(Tp, v))
+    end
+    O = observation(rpomdp, 1, 1)
+    Op = SparseCat([1, 2], [0.15, 0.85])
+    for v in support(O)
+        @test isapprox(pdf(O,v), pdf(Op, v))
+    end
+
 
     ### Testing Nature MDP
     policy = POMDPTools.Policies.FunctionPolicy(x->1)
