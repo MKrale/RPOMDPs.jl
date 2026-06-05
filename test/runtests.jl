@@ -49,7 +49,7 @@ include("./tiger.jl")
         @test isequal_interval(pdf(T,v), pdf(Tp, v))
     end
     O = observation(rpomdp, 1, 1)
-    Op = SparseCat([1, 2], [0.15, 0.85])
+    Op = SparseCat([1, 2], [0.85, 0.15])
     for v in support(O)
         @test isapprox(pdf(O,v), pdf(Op, v))
     end

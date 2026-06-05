@@ -20,7 +20,7 @@ function Index_IPOMDP(pomdp::IPOMDP)
     R = _tabular_rewards(pomdp, S, A, terminal)
     Omat = observation_matrix_a_sp_o(pomdp)
     b0 = _vectorized_initialstate(pomdp, S)
-    return Index_IPOMDP(T, R, Omat, terminal, b0, discount(pomdp), collect(S), collect(A), collect(O))
+    return Index_IPOMDP(T, R, Omat, terminal, b0, discount(pomdp), collect(1:length(S)), collect(1:length(A)), collect(1:length(O)))
 end
 
 # Explicit concrete constructor for index-based IPOMDPs (states/actions/obs are Int)
@@ -121,10 +121,11 @@ end
 function _vectorized_initialstate(pomdp, S)
     b0 = initialstate(pomdp)
     vals = support(b0)
+    idxs = map(x -> stateindex(pomdp, x), vals)
     probs = map(x -> pdf(b0, x), vals)
     # convert numeric probs to intervals
     probs_int = map(p -> isa(p, Number) ? interval(p) : p, probs)
-    return SparseICat(vals, probs_int)
+    return SparseICat(idxs, probs_int)
 end
 
 # POMDPs interface for Index_IPOMDP
@@ -178,21 +179,36 @@ end
 POMDPs.reward(pomdp::Index_IPOMDP, s::Int, a::Int) = pomdp.R[s, a]
 
 function POMDPs.stateindex(pomdp::Index_IPOMDP, s)
+    if isa(s, Integer)
+        si = Int(s)
+        if 1 <= si <= length(pomdp.Svals)
+            return si
+        end
+    end
     idx = findfirst(x->x==s, pomdp.Svals)
     idx === nothing && throw(ErrorException("state not found in Index_IPOMDP"))
     return idx
 end
 
 function POMDPs.actionindex(pomdp::Index_IPOMDP, a)
-    # Prefer direct integer actions for speed
-    isa(a, Integer) && return Int(a)
+    if isa(a, Integer)
+        ai = Int(a)
+        if 1 <= ai <= length(pomdp.Avals)
+            return ai
+        end
+    end
     idx = findfirst(x->x==a, pomdp.Avals)
     idx === nothing && throw(ErrorException("action not found in Index_IPOMDP"))
     return idx
 end
 
 function POMDPs.obsindex(pomdp::Index_IPOMDP, o)
-    isa(o, Integer) && return Int(o)
+    if isa(o, Integer)
+        oi = Int(o)
+        if 1 <= oi <= length(pomdp.Ovals)
+            return oi
+        end
+    end
     idx = findfirst(x->x==o, pomdp.Ovals)
     idx === nothing && throw(ErrorException("observation not found in Index_IPOMDP"))
     return idx
