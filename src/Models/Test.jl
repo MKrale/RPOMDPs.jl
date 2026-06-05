@@ -25,7 +25,7 @@ function POMDPs.transition(M::Test_Backup, s,a)
     s==1 && return SparseICat([3,4], [M.p1_interval, max_interval])
     s==2 && return SparseICat([3,4], [max_interval, M.p2_interval,])
     s>2 && return SparseICat([5], [interval(1.0)])
-    return ErrorException("Error in Test_Backup: state-action pair not recognized.\\s=$s, a=$a")
+    throw("Error in Test_Backup: state-action pair not recognized.\\s=$s, a=$a")
 end
 
 POMDPs.observation(M::Test_Backup, a, sp) = SparseCat([1], [1.0])
@@ -135,7 +135,7 @@ function POMDPs.transition(M::Test_Random3, s,a)
 end
 
 function POMDPs.observation(M::Test_Random3, a, sp)
-    s==2 && return SparseCat([2], [1.0])
+    sp==2 && return SparseCat([2], [1.0])
     return SparseCat([1], [1.0])
 end
 
