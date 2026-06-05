@@ -43,6 +43,8 @@ include("./tiger.jl")
 
     ### Testing ExplicitRPOMDPs (transition & observation function)
     rpomdp = Index_IPOMDP(rpomdp)
+    C = ModelSizes(rpomdp)
+    @test (C.ns == 2); @test(C.na == 3); @test(C.no == 2)
     T = transition(rpomdp, 1, 2)
     Tp = SparseICat([1, 2], [interval(0.4,0.6), interval(0.4, 0.6)])
     for v in T.vals

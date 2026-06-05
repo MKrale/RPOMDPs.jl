@@ -13,7 +13,7 @@ module RPOMDPs
     end
     
     include("Utils.jl")
-    export C, get_constants, add_to_dict!
+    export C, ModelSizes, get_constants, add_to_dict!
     include("rpomdps.jl")
     export RPOMDP, IPOMDP, SparseICat, SafeSparseCat, IDeterministic
     include("RobustPolicies.jl")
