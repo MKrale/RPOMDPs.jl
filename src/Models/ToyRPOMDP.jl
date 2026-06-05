@@ -28,7 +28,7 @@ function POMDPs.transition(M::ToyRPOMDP, s,a)
     s==3 && return SparseICat([5], [interval(1.0)])
     s==4 && return SparseICat([6,7], [M.p_interval, M.p_interval])
     s in [5,6,7,8] && return SparseICat([8], [interval(1.0)])
-    println("help! $s, $a")
+    return ErrorException("Error in ToyRPOMDP: state-action pair not recognized.\\s=$s, a=$a")
 end
 
 function POMDPs.observation(M::ToyRPOMDP, a, sp)
