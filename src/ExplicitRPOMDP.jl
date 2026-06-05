@@ -1,13 +1,13 @@
-struct Index_IPOMDP{S,A,O} <: IPOMDP{S,A,O}
+struct Index_IPOMDP <: IPOMDP{Int64,Int64,Int64}
     T::Vector{SparseMatrixCSC{Interval{Float64}, Int}} # T[a][sp, s] as intervals
     R::Array{Float64,2} # R[s,a]
     O::Vector{SparseMatrixCSC{Float64, Int}} # O[a][o, sp] as probabilities
     isterminal::BitVector
     initialstate::Any # typically SparseICat or similar distribution over states with intervals
     discount::Float64
-    Svals::Vector{S}
-    Avals::Vector{A}
-    Ovals::Vector{O}
+    Svals::Vector{Int64}
+    Avals::Vector{Int64}
+    Ovals::Vector{Int64}
 end
 
 function Index_IPOMDP(pomdp::IPOMDP)
@@ -20,16 +20,12 @@ function Index_IPOMDP(pomdp::IPOMDP)
     R = _tabular_rewards(pomdp, S, A, terminal)
     Omat = observation_matrix_a_sp_o(pomdp)
     b0 = _vectorized_initialstate(pomdp, S)
-    # Preserve original S,A,O types in the Index_IPOMDP type parameters
-    S_type = eltype(S)
-    A_type = eltype(A)
-    O_type = eltype(O)
-    return Index_IPOMDP{S_type, A_type, O_type}(T, R, Omat, terminal, b0, discount(pomdp), collect(S), collect(A), collect(O))
+    return Index_IPOMDP(T, R, Omat, terminal, b0, discount(pomdp), collect(S), collect(A), collect(O))
 end
 
 # Explicit concrete constructor for index-based IPOMDPs (states/actions/obs are Int)
-Index_IPOMDP(T::Vector{<:SparseMatrixCSC{Interval{Float64}, Int}}, R::AbstractMatrix{Float64}, Omat::Vector{<:SparseMatrixCSC{Float64, Int}}, isterm::BitVector, b0, disc::Float64, Svals::Vector{S}=Int[], Avals::Vector{A}=Int[], Ovals::Vector{O}=Int[]) where {S,A,O} =
-    Index_IPOMDP{S,A,O}(T, Matrix{Float64}(R), Omat, isterm, b0, disc, Svals, Avals, Ovals)
+Index_IPOMDP(T::Vector{<:SparseMatrixCSC{Interval{Float64}, Int}}, R::AbstractMatrix{Float64}, Omat::Vector{<:SparseMatrixCSC{Float64, Int}}, isterm::BitVector, b0, disc::Float64, Svals::Vector{Int64}=Int64[], Avals::Vector{Int64}=Int64[], Ovals::Vector{Int64}=Int64[]) =
+    Index_IPOMDP(T, Matrix{Float64}(R), Omat, isterm, b0, disc, Svals, Avals, Ovals)
 
 function transition_matrix_a_sp_s(mdp::IPOMDP)
     S = ordered_states(mdp)

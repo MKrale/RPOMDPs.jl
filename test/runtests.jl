@@ -53,6 +53,7 @@ include("./tiger.jl")
     for v in support(O)
         @test isapprox(pdf(O,v), pdf(Op, v))
     end
+    @test isapprox(reward(rpomdp,1,3), 10.0)
 
 
     ### Testing Nature MDP
