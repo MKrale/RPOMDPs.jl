@@ -123,9 +123,7 @@ function _vectorized_initialstate(pomdp, S)
     vals = support(b0)
     idxs = map(x -> stateindex(pomdp, x), vals)
     probs = map(x -> pdf(b0, x), vals)
-    # convert numeric probs to intervals
-    probs_int = map(p -> isa(p, Number) ? interval(p) : p, probs)
-    return SparseICat(idxs, probs_int)
+    return SparseCat(idxs, probs)
 end
 
 # POMDPs interface for Index_IPOMDP
