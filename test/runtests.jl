@@ -1,5 +1,5 @@
 using RPOMDPs
-using POMDPs, POMDPTools, IntervalArithmetic, Test
+using POMDPs, POMDPTools, IntervalArithmetic, SparseArrays, Test
 
 include("./tiger.jl")
 
@@ -57,6 +57,26 @@ include("./tiger.jl")
     end
     @test isapprox(reward(rpomdp,1,3), 10.0)
 
+    ### Testing ExplicitPOMDPs
+    pomdp = TigerPOMDP()
+    ipomdp = Index_POMDP(pomdp)
+
+    T = transition(ipomdp, 1, 1)
+    Tp = transition(pomdp, ordered_states(pomdp)[1], ordered_actions(pomdp)[1])
+    Tp_support = [x for x in support(Tp) if pdf(Tp, x) > 0.0]
+    Tp_inds = map(x -> stateindex(pomdp, x), Tp_support)
+    Tp_probs = [pdf(Tp, x) for x in Tp_support]
+    @test Tp_inds == T.vals
+    @test all(isapprox.(Tp_probs, T.probs))
+
+    O = observation(ipomdp, 1, 1)
+    Op = observation(pomdp, ordered_actions(pomdp)[1], ordered_states(pomdp)[1])
+    Op_support = [x for x in support(Op) if pdf(Op, x) > 0.0]
+    Op_map = Dict(obsindex(pomdp, x) => pdf(Op, x) for x in Op_support)
+    @test Set(keys(Op_map)) == Set(O.vals)
+    @test all(isapprox.(O.probs, [Op_map[val] for val in O.vals]))
+
+    @test isapprox(reward(ipomdp, 1, 1), reward(pomdp, ordered_states(pomdp)[1], ordered_actions(pomdp)[1]))
 
     ### Testing Nature MDP
     policy = POMDPTools.Policies.FunctionPolicy(x->1)

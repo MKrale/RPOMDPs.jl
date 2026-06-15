@@ -25,8 +25,9 @@ module RPOMDPs
     include("makeuncertain.jl")
     export RobustifiedPOMDP, ConfidencePOMDP,
     IntervalType, AdditiveAbs, AdditiveRel, Multiplicative
-    include("ExplicitRPOMDP.jl")
-    export Index_IPOMDP
+    include("ExplicitRPOMDP.jl"); include("ExplicitPOMDP.jl");
+    export Index_IPOMDP, Index_POMDP
+    
     include("Models/RPOMDP_Models.jl")
 end
 

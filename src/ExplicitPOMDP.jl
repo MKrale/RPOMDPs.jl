@@ -1,16 +1,16 @@
-struct Index_IPOMDP <: IPOMDP{Int64,Int64,Int64}
-    T::Vector{SparseMatrixCSC{Interval{Float64}, Int}} # T[a][sp, s] as intervals
+struct Index_POMDP <: POMDP{Int64,Int64,Int64}
+    T::Vector{SparseMatrixCSC{Float64, Int}} # T[a][sp, s] as transition probabilities
     R::Array{Float64,2} # R[s,a]
-    O::Vector{SparseMatrixCSC{Float64, Int}} # O[a][o, sp] as probabilities
+    O::Vector{SparseMatrixCSC{Float64, Int}} # O[a][o, sp] as observation probabilities
     isterminal::BitVector
-    initialstate::Any # typically SparseICat or similar distribution over states with intervals
+    initialstate::Any # typically SparseCat distribution over states
     discount::Float64
     Svals::Vector{Int64}
     Avals::Vector{Int64}
     Ovals::Vector{Int64}
 end
 
-function Index_IPOMDP(pomdp::IPOMDP)
+function Index_POMDP(pomdp::POMDP)
     S = ordered_states(pomdp)
     A = ordered_actions(pomdp)
     O = ordered_observations(pomdp)
@@ -20,14 +20,14 @@ function Index_IPOMDP(pomdp::IPOMDP)
     R = _tabular_rewards(pomdp, S, A, terminal)
     Omat = observation_matrix_a_sp_o(pomdp)
     b0 = _vectorized_initialstate(pomdp, S)
-    return Index_IPOMDP(T, R, Omat, terminal, b0, discount(pomdp), collect(1:length(S)), collect(1:length(A)), collect(1:length(O)))
+    return Index_POMDP(T, R, Omat, terminal, b0, discount(pomdp), collect(1:length(S)), collect(1:length(A)), collect(1:length(O)))
 end
 
-# Explicit concrete constructor for index-based IPOMDPs (states/actions/obs are Int)
-Index_IPOMDP(T::Vector{<:SparseMatrixCSC{Interval{Float64}, Int}}, R::AbstractMatrix{Float64}, Omat::Vector{<:SparseMatrixCSC{Float64, Int}}, isterm::BitVector, b0, disc::Float64, Svals::Vector{Int64}=Int64[], Avals::Vector{Int64}=Int64[], Ovals::Vector{Int64}=Int64[]) =
-    Index_IPOMDP(T, Matrix{Float64}(R), Omat, isterm, b0, disc, Svals, Avals, Ovals)
+# Explicit concrete constructor for index-based POMDPs (states/actions/obs are Int)
+Index_POMDP(T::Vector{<:SparseMatrixCSC{Float64, Int}}, R::AbstractMatrix{Float64}, Omat::Vector{<:SparseMatrixCSC{Float64, Int}}, isterm::BitVector, b0, disc::Float64, Svals::Vector{Int64}=Int64[], Avals::Vector{Int64}=Int64[], Ovals::Vector{Int64}=Int64[]) =
+    Index_POMDP(T, Matrix{Float64}(R), Omat, isterm, b0, disc, Svals, Avals, Ovals)
 
-function transition_matrix_a_sp_s(mdp::IPOMDP)
+function transition_matrix_a_sp_s(mdp::POMDP)
     S = ordered_states(mdp)
     A = ordered_actions(mdp)
 
@@ -35,7 +35,7 @@ function transition_matrix_a_sp_s(mdp::IPOMDP)
     na = length(A)
     transmat_row_A = [Int[] for _ in 1:na]
     transmat_col_A = [Int[] for _ in 1:na]
-    transmat_data_A = [Vector{Interval{Float64}}() for _ in 1:na]
+    transmat_data_A = [Vector{Float64}() for _ in 1:na]
 
     for (si,s) in enumerate(S)
         for (ai,a) in enumerate(A)
@@ -46,18 +46,12 @@ function transition_matrix_a_sp_s(mdp::IPOMDP)
             else
                 td = transition(mdp, s, a)
                 for (sp, p) in weighted_iterator(td)
-                    # convert to interval if needed
-                    if isa(p, Number)
-                        pint = interval(p)
-                    else
-                        pint = p
-                    end
-                    # include even degenerate-zero intervals if nonzero bounds
-                    if sup(pint) > 0.0
+                    prob = isa(p, Number) ? Float64(p) : Float64(mid(p))
+                    if prob > 0.0
                         spi = stateindex(mdp, sp)
                         push!(transmat_row_A[ai], spi)
                         push!(transmat_col_A[ai], si)
-                        push!(transmat_data_A[ai], pint)
+                        push!(transmat_data_A[ai], prob)
                     end
                 end
             end
@@ -66,7 +60,7 @@ function transition_matrix_a_sp_s(mdp::IPOMDP)
     return [sparse(transmat_row_A[a], transmat_col_A[a], transmat_data_A[a], ns, ns) for a in 1:na]
 end
 
-function observation_matrix_a_sp_o(mdp::IPOMDP)
+function observation_matrix_a_sp_o(mdp::POMDP)
     S = ordered_states(mdp)
     A = ordered_actions(mdp)
     O = ordered_observations(mdp)
@@ -83,7 +77,7 @@ function observation_matrix_a_sp_o(mdp::IPOMDP)
         for (ai, a) in enumerate(A)
             od = observation(mdp, a, sp)
             for (o, p) in weighted_iterator(od)
-                prob = isa(p, Number) ? Float64(p) : mid(p)
+                prob = isa(p, Number) ? Float64(p) : Float64(mid(p))
                 if prob > 0.0
                     oi = obsindex(mdp, o)
                     push!(obs_row_A[ai], oi)
@@ -96,7 +90,7 @@ function observation_matrix_a_sp_o(mdp::IPOMDP)
     return [sparse(obs_row_A[a], obs_col_A[a], obs_data_A[a], no, ns) for a in 1:na]
 end
 
-function _tabular_rewards(pomdp::IPOMDP, S, A, terminal)
+function _tabular_rewards(pomdp::POMDP, S, A, terminal)
     R = Matrix{Float64}(undef, length(S), length(A))
     for (s_idx, s) in enumerate(S)
         if terminal[s_idx]
@@ -110,7 +104,7 @@ function _tabular_rewards(pomdp::IPOMDP, S, A, terminal)
     return R
 end
 
-function _vectorized_terminal(pomdp::IPOMDP, S)
+function _vectorized_terminal(pomdp::POMDP, S)
     term = BitVector(undef, length(S))
     @inbounds for i in eachindex(term, S)
         term[i] = isterminal(pomdp, S[i])
@@ -118,7 +112,7 @@ function _vectorized_terminal(pomdp::IPOMDP, S)
     return term
 end
 
-function _vectorized_initialstate(pomdp::IPOMDP, S)
+function _vectorized_initialstate(pomdp::POMDP, S)
     b0 = initialstate(pomdp)
     vals = support(b0)
     idxs = map(x -> stateindex(pomdp, x), vals)
@@ -126,25 +120,24 @@ function _vectorized_initialstate(pomdp::IPOMDP, S)
     return SparseCat(idxs, probs)
 end
 
-# POMDPs interface for Index_IPOMDP
-POMDPTools.ordered_states(pomdp::Index_IPOMDP) = pomdp.Svals
-POMDPs.states(pomdp::Index_IPOMDP) = ordered_states(pomdp)
-POMDPTools.ordered_actions(pomdp::Index_IPOMDP) = pomdp.Avals
-POMDPs.actions(pomdp::Index_IPOMDP) = ordered_actions(pomdp)
-POMDPTools.ordered_observations(pomdp::Index_IPOMDP) = pomdp.Ovals
-POMDPs.observations(pomdp::Index_IPOMDP) = ordered_observations(pomdp)
+# POMDPs interface for Index_POMDP
+POMDPTools.ordered_states(pomdp::Index_POMDP) = pomdp.Svals
+POMDPs.states(pomdp::Index_POMDP) = ordered_states(pomdp)
+POMDPTools.ordered_actions(pomdp::Index_POMDP) = pomdp.Avals
+POMDPs.actions(pomdp::Index_POMDP) = ordered_actions(pomdp)
+POMDPTools.ordered_observations(pomdp::Index_POMDP) = pomdp.Ovals
+POMDPs.observations(pomdp::Index_POMDP) = ordered_observations(pomdp)
 
-POMDPs.discount(pomdp::Index_IPOMDP) = pomdp.discount
-POMDPs.initialstate(pomdp::Index_IPOMDP) = pomdp.initialstate
-POMDPs.isterminal(pomdp::Index_IPOMDP, s) = begin
+POMDPs.discount(pomdp::Index_POMDP) = pomdp.discount
+POMDPs.initialstate(pomdp::Index_POMDP) = pomdp.initialstate
+POMDPs.isterminal(pomdp::Index_POMDP, s) = begin
     si = POMDPs.stateindex(pomdp, s)
     return pomdp.isterminal[si]
 end
 
-function POMDPs.transition(pomdp::Index_IPOMDP, s, a)
+function POMDPs.transition(pomdp::Index_POMDP, s, a)
     si = POMDPs.stateindex(pomdp, s)
     ai = POMDPs.actionindex(pomdp, a)
-    # column si of T[ai] (rows are sp indices)
     col = pomdp.T[ai][:, si]
     nz = findnz(col)
     if length(nz) == 2
@@ -153,12 +146,12 @@ function POMDPs.transition(pomdp::Index_IPOMDP, s, a)
         inds, vals = nz[1], nz[3]
     end
     if isempty(inds)
-        return SparseICat(Int[], Vector{Interval{Float64}}())
+        return SparseCat(Int[], Float64[])
     end
-    return SparseICat(inds, vals)
+    return SparseCat(inds, vals)
 end
 
-function POMDPs.observation(pomdp::Index_IPOMDP, a, sp)
+function POMDPs.observation(pomdp::Index_POMDP, a, sp)
     ai = POMDPs.actionindex(pomdp, a)
     spi = POMDPs.stateindex(pomdp, sp)
     col = pomdp.O[ai][:, spi]
@@ -174,9 +167,9 @@ function POMDPs.observation(pomdp::Index_IPOMDP, a, sp)
     return SparseCat(inds, Float64.(vals))
 end
 
-POMDPs.reward(pomdp::Index_IPOMDP, s::Int, a::Int) = pomdp.R[s, a]
+POMDPs.reward(pomdp::Index_POMDP, s::Int, a::Int) = pomdp.R[s, a]
 
-function POMDPs.stateindex(pomdp::Index_IPOMDP, s)
+function POMDPs.stateindex(pomdp::Index_POMDP, s)
     if isa(s, Integer)
         si = Int(s)
         if 1 <= si <= length(pomdp.Svals)
@@ -184,11 +177,11 @@ function POMDPs.stateindex(pomdp::Index_IPOMDP, s)
         end
     end
     idx = findfirst(x->x==s, pomdp.Svals)
-    idx === nothing && throw(ErrorException("state not found in Index_IPOMDP"))
+    idx === nothing && throw(ErrorException("state not found in Index_POMDP"))
     return idx
 end
 
-function POMDPs.actionindex(pomdp::Index_IPOMDP, a)
+function POMDPs.actionindex(pomdp::Index_POMDP, a)
     if isa(a, Integer)
         ai = Int(a)
         if 1 <= ai <= length(pomdp.Avals)
@@ -196,11 +189,11 @@ function POMDPs.actionindex(pomdp::Index_IPOMDP, a)
         end
     end
     idx = findfirst(x->x==a, pomdp.Avals)
-    idx === nothing && throw(ErrorException("action not found in Index_IPOMDP"))
+    idx === nothing && throw(ErrorException("action not found in Index_POMDP"))
     return idx
 end
 
-function POMDPs.obsindex(pomdp::Index_IPOMDP, o)
+function POMDPs.obsindex(pomdp::Index_POMDP, o)
     if isa(o, Integer)
         oi = Int(o)
         if 1 <= oi <= length(pomdp.Ovals)
@@ -208,10 +201,10 @@ function POMDPs.obsindex(pomdp::Index_IPOMDP, o)
         end
     end
     idx = findfirst(x->x==o, pomdp.Ovals)
-    idx === nothing && throw(ErrorException("observation not found in Index_IPOMDP"))
+    idx === nothing && throw(ErrorException("observation not found in Index_POMDP"))
     return idx
 end
 
-n_states(pomdp::Index_IPOMDP) = length(states(pomdp))
-n_actions(pomdp::Index_IPOMDP) = length(actions(pomdp))
-n_observations(pomdp::Index_IPOMDP) = length(observations(pomdp))
+n_states(pomdp::Index_POMDP) = length(states(pomdp))
+n_actions(pomdp::Index_POMDP) = length(actions(pomdp))
+n_observations(pomdp::Index_POMDP) = length(observations(pomdp))
